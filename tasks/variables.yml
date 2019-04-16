@@ -1,0 +1,30 @@
+---
+# tasks file that defines some variables for this role
+
+- name: Get memory facts from remote host
+  shell: "{{ item }}"
+  with_items:
+    - "free -b | awk '/Mem/ {print $2}'"
+    - "getconf PAGE_SIZE"
+    - "grep Hugepagesize /proc/meminfo | awk '{print $2}'"
+  changed_when: false
+  register: result_mem_params
+
+- name: Define memory parameters
+  set_fact:
+    oradb_mem_size: "{{ result_mem_params.results[0].stdout | int }}"
+    oradb_mem_page_size: "{{ result_mem_params.results[1].stdout | int }}"
+    oradb_mem_hugepagesize: "{{ result_mem_params.results[2].stdout | int }}"
+
+- name: Define the number of hugepages
+  set_fact:
+    oradb_mem_num_of_hugepages: "{{ ((oradb_mem_sga_gb | int) * 1024 ** 2 / (oradb_mem_hugepagesize | int)) | int }}"
+  when:
+    - oradb_mem_sga_gb is defined
+    - oradb_mem_sga_gb != ""
+
+- name: Define shared memory kernel parameters
+  set_fact:
+    oradb_kernel_shmall: "{{ ((oradb_mem_size | int) * 0.75 / (oradb_mem_page_size | int) + 1) | int }}"
+    oradb_kernel_shmmax: "{{ (((oradb_mem_size | int) * 0.75 / (oradb_mem_page_size | int) + 1 | int) * (oradb_mem_page_size | int)) | int }}"
+    oradb_kernel_shmmni: "{{ oradb_mem_page_size | int }}"

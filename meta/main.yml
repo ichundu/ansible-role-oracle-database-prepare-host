@@ -1,0 +1,19 @@
+galaxy_info:
+  author: Arlind Bardulla
+  description: Prepare host before installing Oracle Database
+  license: license (GPLv3)
+  min_ansible_version: 2.7
+
+  platforms:
+    - name: EL
+      versions:
+        - 7
+
+  galaxy_tags:
+    - oracle
+    - database
+    - prerequisites
+    - setup
+    - rac
+
+dependencies: []

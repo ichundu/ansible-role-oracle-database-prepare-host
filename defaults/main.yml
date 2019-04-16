@@ -1,0 +1,146 @@
+---
+# defaults file for ichundu.oracle-database-prerequisits
+
+oradb_pkg_deps:
+  - bc
+  - binutils
+  - compat-libcap1
+  - compat-libstdc++-33.i686
+  - compat-libstdc++-33.x86_64
+  - gcc.x86_64
+  - gcc-c++
+  - glibc.i686
+  - glibc.x86_64
+  - glibc-devel.i686
+  - glibc-devel.x86_64
+  - kernel-tools                    # needed for cpupower to set the CPU governor
+  - ksh
+  - libaio.i686
+  - libaio.x86_64
+  - libaio-devel.i686
+  - libaio-devel.x86_64
+  - libgcc.i686
+  - libgcc.x86_64
+  - libstdc++.i686
+  - libstdc++.x86_64
+  - libstdc++-devel.i686
+  - libstdc++-devel.x86_64
+  - libxcb.i686
+  - libxcb.x86_64
+  - libX11.i686
+  - libX11.x86_64
+  - libXau.i686
+  - libXau.x86_64
+  - libXi.i686
+  - libXi.x86_64
+  - libXtst.i686
+  - libXtst.x86_64
+  - make
+  - net-tools
+  - nfs-utils
+  - smartmontools
+  - sysstat
+  - unzip                           # needed for extracting installation setup files
+  - elfutils-libelf-devel.x86_64    # 11g
+
+oradb_os_groups:
+  - name: "oinstall"
+    gid: "54321"
+    primary: true
+  - name: "dba"
+    gid: "54322"
+    primary: false
+  - name: "oper"
+    gid: "54323"
+    primary: false
+  - name: "backupdba"
+    gid: "54324"
+    primary: false
+  - name: "dgdba"
+    gid: "54325"
+    primary: false
+  - name: "kmdba"
+    gid: "54326"
+    primary: false
+  - name: "racdba"
+    gid: "54330"
+    primary: false
+
+oradb_os_user:
+  - name: "oracle"
+    group: "{{ oradb_os_groups | selectattr('primary') | map(attribute='name') | join(',') }}"
+    groups: "{{ oradb_os_groups | selectattr('primary', 'equalto', false) | map(attribute='name') | join(',') }}"
+    uid: "54321"
+
+oradb_hosts_entries:
+  - "{{ ansible_default_ipv4.address }} {{ ansible_fqdn }} {{ ansible_hostname }}"
+
+
+#--------------------------------------------------------------------------
+# Recommended Linux tunning settings for oracle database
+#--------------------------------------------------------------------------
+oradb_io_scheduler: "deadline"
+oradb_transparent_hugepage: "never"
+oradb_kernel_boot_args:
+  - "hugepages={{ oradb_mem_num_of_hugepages | default('0') }}"
+  - "transparent_hugepage={{ oradb_transparent_hugepage }}"
+  - "elevator={{ oradb_io_scheduler }}"
+
+# Set a different value if you want ot utilize huge pages for SGA
+oradb_mem_sga_gb: "0"
+
+#oradb_limits_hard_memlock: "{{ ((oradb_mem_num_of_hugepages | int) * (oradb_mem_hugepagesize | int) | int) }}"
+oradb_limits_hard_memlock: "{{ (ansible_memtotal_mb * 1024 * 0.9) | int }}"
+oradb_limits_soft_memlock: "{{ oradb_limits_hard_memlock | int }}"
+
+oradb_sysctl_settings:
+  - name: vm.swappiness
+    value: 10
+    reload: false
+  - name: vm.dirty_background_ratio
+    value: 3
+    reload: true
+  - name: vm.dirty_ratio
+    value: 80
+    reload: true
+  - name: vm.dirty_expire_centisecs
+    value: 500
+    reload: true
+  - name: kernel.shmmax
+    value: "{{ oradb_kernel_shmmax | int }}"
+    reload: true
+  - name: kernel.shmall
+    value: "{{ oradb_kernel_shmall | int }}"
+    reload: true
+  - name: kernel.shmmni
+    value: "{{ oradb_kernel_shmmni | int }}"
+    reload: true
+  - name: kernel.sem
+    value: "250 32000 100 128"
+    reload: true
+  - name: fs.file-max
+    value: 6815744
+    reload: true
+  - name: fs.aio-max-nr
+    value: 1048576
+    reload: true
+  - name: net.ipv4.ip_local_port_range
+    value: "9000 65500"
+    reload: true
+  - name: net.core.rmem_default
+    value: 262144
+    reload: true
+  - name: net.core.rmem_max
+    value: 4194304
+    reload: true
+  - name: net.core.wmem_default
+    value: 262144
+    reload: true
+  - name: net.core.wmem_max
+    value: 1048576
+    reload: true
+  # - name: vm.nr_hugepages
+  #   value: "{{ oradb_mem_num_of_hugepages | int }}"
+  #   reload: false
+
+

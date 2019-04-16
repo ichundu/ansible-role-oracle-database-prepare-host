@@ -1,0 +1,69 @@
+---
+# tasks file for ichundu.oracle-database-prerequisits
+
+- import_tasks: variables.yml
+
+- name: Install package dependencies
+  yum:
+    name: "{{ oradb_pkg_deps }}"
+    state: present
+
+- name: Ensure primary OS group for oracle is present
+  group:
+    name: "{{ item.name | default(omit) }}"
+    gid: "{{ item.gid | default(omit) }}"
+    state: "{{ item.state | default(omit) }}"
+  with_items: "{{ oradb_os_groups }}"
+
+- name: Esure OS user for oracle is present
+  user:
+    name: "{{ item.name | default(omit) }}"
+    group: "{{ item.group | default(omit) }}"
+    groups: "{{ item.groups | default(omit) }}"
+    append: "{{ item.append | default(omit) }}"
+    uid: "{{ item.uid | default(omit) }}"
+    createhome: "{{ item.createhome | default(omit) }}"
+    home: "{{ item.home | default(omit) }}"
+    shell: "{{ item.shell | default(omit) }}"
+    state: "{{ item.state | default(omit) }}"
+  with_items: "{{ oradb_os_user }}"
+
+- name: Ensure hostname is resolved in /etc/hosts file
+  lineinfile:
+    path: /etc/hosts
+    line: "{{ item }}"
+    state: present
+  with_items: "{{ oradb_hosts_entries }}"
+
+- name: Update boot parameters to kernel menus in /etc/grub.cfg
+  command: "grubby --update-kernel=ALL --args=\"{{ oradb_kernel_boot_args | join(' ') }}\""
+  
+- name: Set kernel parameters to recommended values
+  sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    reload: "{{ item.reload | default(omit) }}"
+    state: "{{ item.state | default('present') }}"
+    sysctl_set: "{{ item.sysctl_set | default(true) }}"
+  with_items: "{{ oradb_sysctl_settings }}"
+
+- name: Set OS user limits as per Oracle recommendations
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+  with_items:
+    - src: "99-oracle-limits.conf.j2"
+      dest: "/etc/security/limits.d/99-oracle-limits.conf"
+    - src: "oracle.sh.j2"
+      dest: "/etc/profile.d/oracle.sh"
+
+- name: List available cpu frequency governors
+  command: cpupower frequency-info --governors
+  register: result_cpupower_cmd
+  changed_when: false
+  failed_when: result_cpupower_cmd == 2
+
+- name: Set cpu frequency governor to performance
+  command: cpupower frequency-set --governor performance
+  when: "'performance' in result_cpupower_cmd.stdout"
+  ignore_errors: true
